@@ -90,19 +90,19 @@ function processMessage(message, rule, config) {
       continue;
     }
     try {
-      var folderName = Utilities.formatDate(messageDate, config.timezone, rule.folder.replace('%s', message.getSubject()));
-      folderName = folderName.replace(':', '');
+      var folderName = Utilities.formatDate(messageDate, config.timezone, rule.folder.replace('%s', message.getSubject().replace(/\//g, "")));
+      folderName = folderName.replace(/:/g, "");
       Logger.log("Saving to folder" + folderName);
       var folder = getOrCreateFolder(folderName);
       var file = folder.createFile(attachment);
       var filename = file.getName();
       if (rule.filenameFrom && rule.filenameTo && rule.filenameFrom == file.getName()) {
-        filename = Utilities.formatDate(messageDate, config.timezone, rule.filenameTo.replace('%s',message.getSubject()));
+        filename = Utilities.formatDate(messageDate, config.timezone, rule.filenameTo.replace('%s',message.getSubject())) + filename;
         Logger.log("INFO:           Renaming matched file '" + file.getName() + "' -> '" + filename + "'");
         file.setName(filename);
       }
       else if (rule.filenameTo) {
-        filename = Utilities.formatDate(messageDate, config.timezone, rule.filenameTo.replace('%s',message.getSubject()));
+        filename = Utilities.formatDate(messageDate, config.timezone, rule.filenameTo.replace('%s',message.getSubject())) + filename;
         Logger.log("INFO:           Renaming '" + file.getName() + "' -> '" + filename + "'");
         file.setName(filename);
       }
@@ -137,12 +137,16 @@ function processThreadToHtml(thread) {
 /**
 * Generate a PDF document for the whole thread using HTML from .
  */
-function processThreadToPdf(thread, rule) {
+function processThreadToPdf(thread, rule, config) {
   Logger.log("INFO: Saving PDF copy of thread '" + thread.getFirstMessageSubject() + "'");
-  var folder = getOrCreateFolder(rule.folder);
+  var messageDate = thread.getMessages()[0].getDate();
+  var folderName = Utilities.formatDate(messageDate, config.timezone, rule.folder.replace('%s', thread.getMessages()[0].getSubject().replace(/\//g, "").replace(/:/g,'')));
+  folderName = folderName.replace(/:/g, "");
+  Logger.log("Saving thread to folder" + folderName);
+  var folder = getOrCreateFolder(folderName);
   var html = processThreadToHtml(thread);
   var blob = Utilities.newBlob(html, 'text/html');
-  var pdf = folder.createFile(blob.getAs('application/pdf')).setName(thread.getFirstMessageSubject() + ".pdf");
+  var pdf = folder.createFile(blob.getAs('application/pdf')).setName(thread.getFirstMessageSubject().replace(/\//g,'').replace(/:/g,'') + ".pdf");
   return pdf;
 }
 
@@ -192,7 +196,7 @@ function Gmail2GDrive() {
         processMessage(message, rule, config);
       }
       if (doPDF) { // Generate a PDF document of a thread:
-        processThreadToPdf(thread, rule);
+        processThreadToPdf(thread, rule, config);
       }
 
       // Mark a thread as processed:
